@@ -1,8 +1,8 @@
-local version = 0.1
+local version = 0.001
+local scriptName = "ViNooB"
 local autoUpdate   = true
 local silentUpdate = false
 
-local scriptName = "ViNooB"
 
 --[[ 
 
