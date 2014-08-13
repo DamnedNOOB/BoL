@@ -1,4 +1,4 @@
-
+local version = 0.1
 --[[ 
 
      ____   ____  _   ____  _____   ___      ___   ______     
@@ -14,8 +14,6 @@
 
 local autoUpdate   = true
 local silentUpdate = false
-
-local version = 0.1
 
 local scriptName = "ViNooB"
 
