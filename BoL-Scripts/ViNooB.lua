@@ -1,4 +1,9 @@
 local version = 0.1
+local autoUpdate   = true
+local silentUpdate = false
+
+local scriptName = "ViNooB"
+
 --[[ 
 
      ____   ____  _   ____  _____   ___      ___   ______     
@@ -10,12 +15,6 @@ local version = 0.1
 
 ]]--                                                              
 
-
-
-local autoUpdate   = true
-local silentUpdate = false
-
-local scriptName = "ViNooB"
 
 local champions = {
     ["Vi"]           = true,
