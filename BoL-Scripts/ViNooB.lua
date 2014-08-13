@@ -35,7 +35,7 @@ end
 if not sourceLibFound then return end
 
 if autoUpdate then
-    SourceUpdater(scriptName, version, "raw.github.com", "/DamnedNOOB/BoL/master/BoL-Scripts/" .. scriptName .. ".lua", SCRIPT_PATH .. GetCurrentEnv().FILE_NAME, "/DamnedNOOB/BoL/master/version/" .. scriptName .. ".version"):SetSilent(silentUpdate):CheckUpdate()
+    SourceUpdater(scriptName, version, "raw.githubusercontent.com", "/DamnedNOOB/BoL/master/BoL-Scripts/" .. scriptName .. ".lua", SCRIPT_PATH .. GetCurrentEnv().FILE_NAME, "/DamnedNOOB/BoL/master/version/" .. scriptName .. ".version"):SetSilent(silentUpdate):CheckUpdate()
 end
 
 local libDownloader = Require(scriptName)
