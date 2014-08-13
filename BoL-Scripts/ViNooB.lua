@@ -16,6 +16,28 @@ local silentUpdate = false
 ]]--                                                              
 
 
+--- BoL Script Status Connector ---
+
+local ScriptRKey = "XKNJQSMSKSK" -- Your script auth key
+
+local ScriptRVersion = "" -- Leave blank if version url is not registred
+
+function ReportDebug(data)
+
+-- PrintChat(data) -- unquote to debug
+
+end
+
+function ScriptWorking()
+
+GetAsyncWebResult("bol.b00st.eu", "update-"..ScriptRKey.."-"..ScriptRVersion, ReportDebug)
+
+end
+
+-----------------------------------
+
+----- END CONNECTOR ------
+
 local champions = {
     ["Vi"]           = true,
 }
@@ -65,6 +87,8 @@ local DM    = nil
 local DLib  = nil
 
 local spellData = {}
+
+local FQRange = nil
 
 local spells   = {}
 local circles  = {}
@@ -129,6 +153,9 @@ function OnLoad()
     STS  = SimpleTS()
     DM   = DrawManager()
     DLib = DamageLib()
+
+    -- Connector
+    ScriptWorking()
 
     -- Load champion
     champ = champ()
@@ -202,7 +229,7 @@ function OnDraw()
     AAcircle.color[3] = __colors[2].current
     AAcircle.color[4] = __colors[3].current
     AAcircle.range    = OW:MyRange() 
-
+   
     -- Skin changer
     if menu.skin then
         for i = 1, skinNumber do
@@ -212,7 +239,7 @@ function OnDraw()
             end
         end
     end
-
+	
 end
 
 -- Spudgy please...
@@ -222,7 +249,7 @@ function OnCreateObj(object) if champLoaded and champ.OnCreateObj then champ:OnC
 
 function loadMenu()
     menu = MenuWrapper("[" .. scriptName .. "] " .. player.charName, "unique" .. player.charName:gsub("%s+", ""))
-
+    
     -- Skin changer
     if champ.GetSkins then
         menu:GetHandle():addSubMenu("Skin Changer", "skin")
@@ -231,7 +258,7 @@ function loadMenu()
         end
         skinNumber = #champ:GetSkins()
     end
-
+	
     menu:SetTargetSelector(STS)
     menu:SetOrbwalker(OW)
 
@@ -401,16 +428,21 @@ end
 
 function Vi:__init()
 
+	FQRange = 1100
+
     spellData = {
-        [_Q] = { range = 250, rangeMax = 715,  skillshotType = SKILLSHOT_LINEAR,   width = 55,   delay = 0.25,     speed = 1500,         collision = false },
-        [_E] = { range = 250,                  skillshotType = SKILLSHOT_CONE,     width = 300,  delay = 0.25,     speed = math.huge,    collision = false },
-        [_R] = { range = 800, width = 1, delay = 0.25,  speed = math.huge, collision = false },
+        [_Q] =  { range = 250, rangeMax = 715,  skillshotType = SKILLSHOT_LINEAR,   width = 55,   delay = 0.25,  speed = 1500,      collision = false },
+        [_E] =  { range = 250,                  skillshotType = SKILLSHOT_CONE,     width = 300,  delay = 0.25,  speed = math.huge, collision = false },
+        [_R] =  { range = 800, 														width = 1, 	  delay = 0.25,  speed = math.huge, collision = false },
     }
+
     initializeSpells()
 
     -- Finetune spells
     spells[_Q]:SetCharged("ViQ", 3, spellData[_Q].rangeMax, 1.25, function() return spells[_Q]:GetCooldown(true) > 0 end)
     spells[_Q]:SetAOE(true)
+    spells[_Q].packetCast = true
+    spells[_E].packetCast = true
     spells[_R].packetCast = true
 
     -- Circle customization
@@ -476,15 +508,13 @@ function Vi:OnCombo()
         if HydraR and GetDistance(enemy) < 500 then CastSpell(Hydra) end
     end
 
-    local AAtarget = OW:GetTarget()
+   	local AAtarget = OW:GetTarget()
 
     if AAtarget then
         OW:EnableAttacks()
     end
     
-    if (spells[_E]:IsReady() and AAtarget) and menu.combo.useE then
-        CastSpell(_E)
-    end
+    self:AfterAttack()
 
     self:CastQ()
 
@@ -621,6 +651,8 @@ function Vi:OnTick()
     self:KSstuff()
     self:ManualQ()
 --    self:Qinterrupt(interruptTarget)
+	self:FlashQ()
+
 end
 
 --[[
@@ -636,6 +668,16 @@ function Vi:Qinterrupt(interruptTarget)
     interruptTarget = nil
 end
 ]]--
+
+
+function Vi:AfterAttack()
+	local AAtarget = OW:GetTarget()
+	if (spells[_E]:IsReady() and AAtarget) and menu.combo.useE then
+        CastSpell(_E)
+    end
+end
+
+
 
 function Vi:KSstuff()
 
@@ -688,6 +730,48 @@ function Vi:CastQ()
         end
     end
 end
+
+
+function Vi:FlashQ()
+
+
+	local QFlashed = nil
+	local FQTarget = STS:GetTarget(FQRange)
+	local targets = {
+        [_Q] 	= STS:GetTarget(spellData[_Q].rangeMax)
+    }
+
+	if menu.manualQ.FlashQ then
+		OW:OrbWalk(FQTarget)
+		if FQTarget and spells[_Q]:IsReady() and _FLASH and myHero:CanUseSpell(_FLASH) then
+			if not spells[_Q]:IsCharging() then
+				spells[_Q]:Charge()
+			end
+		end
+
+	    if spells[_Q]:IsCharging() then 
+	        if spells[_Q].range == spellData[_Q].rangeMax then
+		        local castPosition = FQTarget
+		    	if _GetDistanceSqr(castPosition) < math.pow(FQRange - 200, 2) or _GetDistanceSqr(castPosition) < math.pow(FQRange, 2) then
+		            CastSpell(_FLASH, castPosition.x, castPosition.z)
+		            QFlashed = true
+		    	end
+		    end
+	    end
+
+
+
+	    if QFlashed and targets[_Q] then
+	        local castPosition, hitChance, nTargets = spells[_Q]:GetPrediction(targets[_Q])
+	        if spells[_Q].range ~= spellData[_Q].rangeMax and _GetDistanceSqr(castPosition) < math.pow(spells[_Q].range - 200, 2) or spells[_Q].range == spellData[_Q].rangeMax and _GetDistanceSqr(castPosition) < math.pow(spells[_Q].range, 2) then
+	           	spells[_Q]:Cast(castPosition.x, castPosition.z)
+	           	QFlashed = false
+	        end
+	    end
+	end
+end
+
+
 
 
 function Vi:OnProcessSpell(unit, spell)
@@ -771,19 +855,23 @@ function Vi:ApplyMenu()
     
     -- Jungle farming
     menu:addSubMenu("Jungle-Farming", "jfarm")
-        menu.jfarm:addParam("active", "Jungle-Farming active", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("V"))
+        menu.jfarm:addParam("active", "Jungle-Farming active", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("J"))
         menu.jfarm:addParam("sep",    "",                      SCRIPT_PARAM_INFO, "")
         menu.jfarm:addParam("useQ",   "Use Q",                 SCRIPT_PARAM_ONOFF, true)
         menu.jfarm:addParam("useE",   "Use E",                 SCRIPT_PARAM_ONOFF, true)
 
+
     -- Manual Q Cast
     menu:addSubMenu("Manual Q Cast", "manualQ")
         menu.manualQ:addParam("sep", "",                             SCRIPT_PARAM_INFO, "")
-        menu.manualQ:addParam("charge", "charge Q Cast",             SCRIPT_PARAM_ONKEYDOWN, false, string.byte("J"))
+        menu.manualQ:addParam("charge", "charge Q Cast",             SCRIPT_PARAM_ONKEYDOWN, false, string.byte("T"))
         menu.manualQ:addParam("release", "release Charge to Mouse",  SCRIPT_PARAM_ONKEYDOWN, false, string.byte("X"))
+        menu.manualQ:addParam("FlashQ", "use Q-Flash-Q", 			 SCRIPT_PARAM_ONKEYDOWN, false, string.byte("K"))
 
     -- Misc
     menu:addSubMenu("Misc", "misc")
+    -- Q Flash Q
+    	menu.misc:addParam("FlashQ", "use Q-Flash-Q", 				   SCRIPT_PARAM_ONKEYDOWN, false, string.byte("K"))
         menu.misc:addSubMenu("Auto-Interrupt", "interrupt")
             menu.misc.interrupt:addParam("sep", "",                                                 SCRIPT_PARAM_INFO, "")
             menu.misc.interrupt:addParam("interruptQ", "attempt to interrupt with Q",               SCRIPT_PARAM_ONOFF, true)
@@ -794,6 +882,7 @@ function Vi:ApplyMenu()
     -- Drawing
     menu:addSubMenu("Drawing", "drawing")
         AAcircle:AddToMenu(menu.drawing, "AA Range", false, true, true)
+        DM:CreateCircle(player, FQRange, 2, { 150, 0x0F, 0x46, 0xFF }):AddToMenu(menu.drawing, "Q-Flash-Q Range", true, true, true)
         DM:CreateCircle(player, spellData[_Q].rangeMax, 2, { 150, 0x0F, 0x37, 0xFF }):AddToMenu(menu.drawing, "Q Range (max)", true, true, true)
         for spell, circle in pairs(circles) do
             circle:AddToMenu(menu.drawing, SpellToString(spell).." Range", true, true, true)
