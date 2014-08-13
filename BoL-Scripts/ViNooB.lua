@@ -11,7 +11,6 @@
 ]]--                                                              
 
 
--- Leave autoUpdate false for now... will add soon(TM)
 
 local autoUpdate   = true
 local silentUpdate = false
