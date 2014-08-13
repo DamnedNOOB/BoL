@@ -1,8 +1,12 @@
-local version = 0.001
+local version = 0.003
 local scriptName = "ViNooB"
 local autoUpdate   = true
 local silentUpdate = false
 
+
+-- Changelog:
+
+-- v.0.003: added Q-Flash-Q
 
 --[[ 
 
