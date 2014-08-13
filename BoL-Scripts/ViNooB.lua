@@ -13,12 +13,12 @@
 
 -- Leave autoUpdate false for now... will add soon(TM)
 
-local autoUpdate   = false
+local autoUpdate   = true
 local silentUpdate = false
 
-local version = 0.01
+local version = 0.1
 
-local scriptName = "ViNOOB"
+local scriptName = "ViNooB"
 
 local champions = {
     ["Vi"]           = true,
@@ -39,7 +39,7 @@ end
 if not sourceLibFound then return end
 
 if autoUpdate then
-    SourceUpdater(scriptName, version, "raw.github.com", "xy" .. scriptName .. ".lua", SCRIPT_PATH .. GetCurrentEnv().FILE_NAME, "xy" .. scriptName .. ".version"):SetSilent(silentUpdate):CheckUpdate()
+    SourceUpdater(scriptName, version, "raw.github.com", "/DamnedNOOB/BoL/BoL-Scripts/" .. scriptName .. ".lua", SCRIPT_PATH .. GetCurrentEnv().FILE_NAME, "/DamnedNOOB/BoL/blob/master/version/" .. scriptName .. ".version"):SetSilent(silentUpdate):CheckUpdate()
 end
 
 local libDownloader = Require(scriptName)
