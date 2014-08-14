@@ -1,4 +1,4 @@
-local version = 0.003
+local version = 0.004
 local scriptName = "ViNooB"
 local autoUpdate   = true
 local silentUpdate = false
@@ -7,6 +7,9 @@ local silentUpdate = false
 -- Changelog:
 
 -- v.0.003: added Q-Flash-Q
+-- v.0.004: wont waste Flash anymore if target gets in range
+--          ímproved AAreset with E
+--          fixed menu
 
 --[[ 
 
@@ -15,32 +18,10 @@ local silentUpdate = false
       \ \   / /  __    |   \ | | /  .-.  \/  .-.  \ | |_) |   
        \ \ / /  [  |   | |\ \| | | |   | || |   | | |  __'.   
         \ ' /    | |  _| |_\   |_\  `-'  /\  `-'  /_| |__) |  
-         \_/    [___]|_____|\____|`.___.'  `.___.'|_______/    by DamnedNOOB
+         \_/    [___]|_____|\____|`.___.'  `.___.'|_______/    (soon(TM)-AIO) by DamnedNOOB
 
 ]]--                                                              
 
-
---- BoL Script Status Connector ---
-
-local ScriptRKey = "XKNJQSMSKSK" -- Your script auth key
-
-local ScriptRVersion = "" -- Leave blank if version url is not registred
-
-function ReportDebug(data)
-
--- PrintChat(data) -- unquote to debug
-
-end
-
-function ScriptWorking()
-
-GetAsyncWebResult("bol.b00st.eu", "update-"..ScriptRKey.."-"..ScriptRVersion, ReportDebug)
-
-end
-
------------------------------------
-
------ END CONNECTOR ------
 
 local champions = {
     ["Vi"]           = true,
@@ -92,14 +73,13 @@ local DLib  = nil
 
 local spellData = {}
 
+local QCasted = nil
 local FQRange = nil
+local AAtarget = nil
 
 local spells   = {}
 local circles  = {}
 local AAcircle = nil
-
-local interruptTarget = nil
-local interruptCastTime = nil
 
 local champLoaded = false
 local skip        = false
@@ -157,9 +137,6 @@ function OnLoad()
     STS  = SimpleTS()
     DM   = DrawManager()
     DLib = DamageLib()
-
-    -- Connector
-    ScriptWorking()
 
     -- Load champion
     champ = champ()
@@ -243,11 +220,12 @@ function OnDraw()
             end
         end
     end
-	
+    
 end
 
 -- Spudgy please...
 function OnCreateObj(object) if champLoaded and champ.OnCreateObj then champ:OnCreateObj(object) end end
+
 
 --[[ Other Functions ]]--
 
@@ -262,7 +240,7 @@ function loadMenu()
         end
         skinNumber = #champ:GetSkins()
     end
-	
+    
     menu:SetTargetSelector(STS)
     menu:SetOrbwalker(OW)
 
@@ -414,6 +392,7 @@ function checkitems()
     YoumuuR = (Youmuu ~= nil and myHero:CanUseSpell(Youmuu))
     SwordofDivine = GetInventorySlotItem(3131)
     SwordofDivineR = (SwordofDivine ~= nil and myHero:CanUseSpell(SwordofDivine)) 
+
 end
 
 --[[
@@ -432,12 +411,12 @@ end
 
 function Vi:__init()
 
-	FQRange = 1100
+    FQRange = 1100
 
     spellData = {
         [_Q] =  { range = 250, rangeMax = 715,  skillshotType = SKILLSHOT_LINEAR,   width = 55,   delay = 0.25,  speed = 1500,      collision = false },
         [_E] =  { range = 250,                  skillshotType = SKILLSHOT_CONE,     width = 300,  delay = 0.25,  speed = math.huge, collision = false },
-        [_R] =  { range = 800, 														width = 1, 	  delay = 0.25,  speed = math.huge, collision = false },
+        [_R] =  { range = 800,                                                      width = 1,    delay = 0.25,  speed = math.huge, collision = false },
     }
 
     initializeSpells()
@@ -449,10 +428,12 @@ function Vi:__init()
     spells[_E].packetCast = true
     spells[_R].packetCast = true
 
+
     -- Circle customization
     circles[_Q].color = { 255, 0x0F, 0x37, 0xFF }
     circles[_Q].width = 2
-    circles[_R]:SetEnabled(false)
+    circles[_R].color = { 255, 0xFF, 0x25, 0x30 }
+    circles[_R].width = 2
 
     -- Minions
     self.enemyMinions  = minionManager(MINION_ENEMY,  spellData[_Q].rangeMax, player, MINION_SORT_MAXHEALTH_DEC)
@@ -466,9 +447,9 @@ function Vi:__init()
     --Register damage sources
     DLib:RegisterDamageSource(_Q, _PHYSICAL, 50,  25, _PHYSICAL, _AD, 0.19, function() return spells[_Q]:IsReady() end)
     DLib:RegisterDamageSource(_E, _PHYSICAL, 5,  20, _PHYSICAL, _AD, 1.74, function() return spells[_E]:IsReady() end)
-    DLib:RegisterDamageSource(_R, _PHYSICAL, 200, 125, _PHYSICAL, _AD, 0.10, function() return spells[_R]:IsReady() end)
+    DLib:RegisterDamageSource(_R, _PHYSICAL, 200, 125, _PHYSICAL, _AD, 0.10, function() return spells[_R]:IsReady() end) 
 
-    OW:RegisterAfterAttackCallback(AfterAttack)              
+    OW:RegisterAfterAttackCallback(AfterAttack)         
 
     PacketHandler:HookOutgoingPacket(Packet.headers.S_MOVE, function(p) self:OnSendMove(p) end)
 
@@ -486,6 +467,7 @@ function Vi:__init()
                 end
         end
     end
+
 
 end
 
@@ -506,19 +488,6 @@ function Vi:OnCombo()
         [_E] = STS:GetTarget(spellData[_E].range),
         [_R] = STS:GetTarget(spellData[_R].range)
     }
-
-    for _, enemy in ipairs(GetEnemyHeroes()) do
-        if TiamatR and GetDistance(enemy) < 500 then CastSpell(Tiamat) end
-        if HydraR and GetDistance(enemy) < 500 then CastSpell(Hydra) end
-    end
-
-   	local AAtarget = OW:GetTarget()
-
-    if AAtarget then
-        OW:EnableAttacks()
-    end
-    
-    self:AfterAttack()
 
     self:CastQ()
 
@@ -561,33 +530,35 @@ function Vi:OnFarm()
 
     local minionsUpdated = false
 
-    if menu.farm.useQ and spells[_Q]:IsReady() then
+    if (player.mana / player.maxMana * 100) < menu.farm.mana then return end
 
-        -- Save performance, update minions within here
-        self.enemyMinions:update()
-        minionsUpdated = true
+        if menu.farm.useQ and spells[_Q]:IsReady() then
 
-        if not spells[_Q]:IsCharging() then
-            if #self.enemyMinions.objects > 1 then
-                spells[_Q]:Charge()
-            end
-        else
-            local maxRange = spells[_Q].range == spellData[_Q].rangeMax
-            local continue = maxRange
-            local minions  = SelectUnits(self.enemyMinions.objects, function(t) return ValidTarget(t) and _GetDistanceSqr(t) < spells[_Q].rangeSqr end)
-            if not maxRange then
-                local maxRangeMinions = SelectUnits(self.enemyMinions.objects, function(t) return ValidTarget(t) and _GetDistanceSqr(t) < math.pow(spellData[_Q].rangeMax, 2) end)
-                continue = #maxRangeMinions == #minions
-            end
-            if continue then
-                minions = GetPredictedPositionsTable(VP, minions, spells[_Q].delay, spells[_Q].width, spells[_Q].range, math.huge, player, false)
-                local castPosition = GetBestLineFarmPosition(spells[_Q].range, spells[_Q].width, minions)
-                if castPosition then
-                    spells[_Q]:Cast(castPosition.x, castPosition.z)
+            -- Save performance, update minions within here
+            self.enemyMinions:update()
+            minionsUpdated = true
+
+            if not spells[_Q]:IsCharging() then
+                if #self.enemyMinions.objects > 1 then
+                    spells[_Q]:Charge()
+                end
+            else
+                local maxRange = spells[_Q].range == spellData[_Q].rangeMax
+                local continue = maxRange
+                local minions  = SelectUnits(self.enemyMinions.objects, function(t) return ValidTarget(t) and _GetDistanceSqr(t) < spells[_Q].rangeSqr end)
+                if not maxRange then
+                    local maxRangeMinions = SelectUnits(self.enemyMinions.objects, function(t) return ValidTarget(t) and _GetDistanceSqr(t) < math.pow(spellData[_Q].rangeMax, 2) end)
+                    continue = #maxRangeMinions == #minions
+                end
+                if continue then
+                    minions = GetPredictedPositionsTable(VP, minions, spells[_Q].delay, spells[_Q].width, spells[_Q].range, math.huge, player, false)
+                    local castPosition = GetBestLineFarmPosition(spells[_Q].range, spells[_Q].width, minions)
+                    if castPosition then
+                        spells[_Q]:Cast(castPosition.x, castPosition.z)
+                    end
                 end
             end
         end
-    end
 
     if menu.farm.useE and spells[_E]:IsReady() then
 
@@ -611,33 +582,40 @@ function Vi:OnJungleFarm()
 
     local jungleMinionsUpdated = false
 
-    if menu.jfarm.active then
+    if (player.mana / player.maxMana * 100) < menu.jfarm.mana then return end
+        if menu.jfarm.active then
 
-        self.jungleMinions:update()
-        local jungleMinionsUpdated = true
+            self.jungleMinions:update()
+            local jungleMinionsUpdated = true
 
-        if #self.jungleMinions.objects > 0 then
-            if menu.jfarm.useQ and spells[_Q]:IsReady() then
-                if not spells[_Q]:IsCharging() then
-                    spells[_Q]:Charge()
+            if #self.jungleMinions.objects > 0 then
+                if menu.jfarm.useQ and spells[_Q]:IsReady() then
+                    if not spells[_Q]:IsCharging() then
+                        spells[_Q]:Charge()
+                    end
+                    if _GetDistanceSqr(self.jungleMinions.objects[1]) <= spells[_Q].rangeSqr then
+                        spells[_Q]:Cast(self.jungleMinions.objects[1].x, self.jungleMinions.objects[1].z)
+                    end
                 end
-                if _GetDistanceSqr(self.jungleMinions.objects[1]) <= spells[_Q].rangeSqr then
-                    spells[_Q]:Cast(self.jungleMinions.objects[1].x, self.jungleMinions.objects[1].z)
+--[[
+                if menu.jfarm.useE and spells[_E]:IsReady() and _GetDistanceSqr(self.jungleMinions.objects[1]) <= spells[_E].rangeSqr then
+                    CastSpell(_E)
                 end
-            end
-
-            if menu.jfarm.useE and spells[_E]:IsReady() and _GetDistanceSqr(self.jungleMinions.objects[1]) <= spells[_E].rangeSqr then
-                CastSpell(_E)
+]]--
             end
         end
-    end
 
 end
 
 
 function Vi:OnTick()
 
-    OW:EnableAttacks()
+    AAtarget = OW:GetTarget()
+
+    if AAtarget then
+        OW:EnableAttacks()
+    end
+
     checkitems()
 
     if not menu.combo.active then
@@ -647,40 +625,16 @@ function Vi:OnTick()
             self:OnFarm()
         end
         -- Jungle farming
-        if menu.jfarm.active then
+        if menu.jfarm.active and ((player.mana / player.maxMana * 100) >= menu.jfarm.mana or spells[_Q]:IsCharging()) then
             self:OnJungleFarm()
         end
     end
 
     self:KSstuff()
-    self:ManualQ()
---    self:Qinterrupt(interruptTarget)
-	self:FlashQ()
+    --self:ManualQ()
+    self:FlashQ()
 
 end
-
---[[
-function Vi:Qinterrupt(interruptTarget)
-    if interruptTarget then
-        if spells[_Q]:IsCharging() and os.clock() - interruptCastTime < 1 then
-            local castPosition, hitChance, nTargets = spells[_Q]:GetPrediction(interruptTarget)
-            if spells[_Q].range ~= spellData[_Q].rangeMax and _GetDistanceSqr(castPosition) < math.pow(spells[_Q].range - 200, 2) or spells[_Q].range == spellData[_Q].rangeMax and _GetDistanceSqr(castPosition) < math.pow(spells[_Q].range, 2) then
-                spells[_Q]:Cast(castPosition.x, castPosition.z)
-            end
-        end
-    end
-    interruptTarget = nil
-end
-]]--
-
-
-function Vi:AfterAttack()
-	local AAtarget = OW:GetTarget()
-	if (spells[_E]:IsReady() and AAtarget) and menu.combo.useE then
-        CastSpell(_E)
-    end
-end
-
 
 
 function Vi:KSstuff()
@@ -707,7 +661,7 @@ function Vi:KSstuff()
     end
 end
 
-
+--[[
 function Vi:ManualQ()
     if spells[_Q]:IsCharging() and menu.manualQ.release then
         spells[_Q]:Cast(mousePos.x, mousePos.z)
@@ -715,7 +669,7 @@ function Vi:ManualQ()
         spells[_Q]:Charge()
     end
 end
-
+]]--
 
 function Vi:CastQ()
 
@@ -728,7 +682,9 @@ function Vi:CastQ()
             local castPosition, hitChance, nTargets = spells[_Q]:GetPrediction(targets[_Q])
             if spells[_Q].range ~= spellData[_Q].rangeMax and _GetDistanceSqr(castPosition) < math.pow(spells[_Q].range - 200, 2) or spells[_Q].range == spellData[_Q].rangeMax and _GetDistanceSqr(castPosition) < math.pow(spells[_Q].range, 2) then
                 spells[_Q]:Cast(castPosition.x, castPosition.z)
+                QCasted = true
             end
+            QCasted = false
         else
             spells[_Q]:Charge()
         end
@@ -738,58 +694,80 @@ end
 
 function Vi:FlashQ()
 
-
-	local QFlashed = nil
-	local FQTarget = STS:GetTarget(FQRange)
-	local targets = {
-        [_Q] 	= STS:GetTarget(spellData[_Q].rangeMax)
+    local InRange = nil
+    local QFlashed = nil
+    local FQTarget = STS:GetTarget(FQRange)
+    local targets = {
+        [_Q]    = STS:GetTarget(spellData[_Q].rangeMax)
     }
 
-	if menu.manualQ.FlashQ then
-		OW:OrbWalk(FQTarget)
-		if FQTarget and spells[_Q]:IsReady() and _FLASH and myHero:CanUseSpell(_FLASH) then
-			if not spells[_Q]:IsCharging() then
-				spells[_Q]:Charge()
-			end
-		end
+    if menu.manualQ.FlashQ then
 
-	    if spells[_Q]:IsCharging() then 
-	        if spells[_Q].range == spellData[_Q].rangeMax then
-		        local castPosition = FQTarget
-		    	if _GetDistanceSqr(castPosition) < math.pow(FQRange - 200, 2) or _GetDistanceSqr(castPosition) < math.pow(FQRange, 2) then
-		            CastSpell(_FLASH, castPosition.x, castPosition.z)
-		            QFlashed = true
-		    	end
-		    end
-	    end
-
-
-
-	    if QFlashed and targets[_Q] then
-	        local castPosition, hitChance, nTargets = spells[_Q]:GetPrediction(targets[_Q])
-	        if spells[_Q].range ~= spellData[_Q].rangeMax and _GetDistanceSqr(castPosition) < math.pow(spells[_Q].range - 200, 2) or spells[_Q].range == spellData[_Q].rangeMax and _GetDistanceSqr(castPosition) < math.pow(spells[_Q].range, 2) then
-	           	spells[_Q]:Cast(castPosition.x, castPosition.z)
-	           	QFlashed = false
-	        end
-	    end
-	end
-end
-
-
-
-
-function Vi:OnProcessSpell(unit, spell)
---[[
-    if #ToInterrupt > 0 and menu.misc.interrupt.interruptQ and spells[_Q]:IsReady() then
-        for _, ability in pairs(ToInterrupt) do
-            if spell.name == ability and unit.team ~= myHero.team and GetDistance(unit) < 715 then
+        OW:OrbWalk(FQTarget)
+        if FQTarget and spells[_Q]:IsReady() and _FLASH and myHero:CanUseSpell(_FLASH) then
+            if not spells[_Q]:IsCharging() then
                 spells[_Q]:Charge()
             end
         end
-        interruptTarget = unit
-        interruptCastTime = os.clock()
+
+        if spells[_Q]:IsCharging() and myHero:CanUseSpell(_FLASH) then
+
+            if GetDistance(FQTarget) < 715 then InRange = true end 
+
+            if spells[_Q].range == spellData[_Q].rangeMax and not InRange then
+                local castPosition = FQTarget
+                if (_GetDistanceSqr(castPosition) < math.pow(FQRange - 200, 2) or _GetDistanceSqr(castPosition) < math.pow(FQRange, 2)) and not InRange then
+                    CastSpell(_FLASH, castPosition.x, castPosition.z)
+                    QFlashed = true
+                end
+            end
+        end
+
+
+
+        if QFlashed or InRange then
+            if targets[_Q] then
+                local castPosition, hitChance, nTargets = spells[_Q]:GetPrediction(targets[_Q])
+                if spells[_Q].range ~= spellData[_Q].rangeMax and _GetDistanceSqr(castPosition) < math.pow(spells[_Q].range - 200, 2) or spells[_Q].range == spellData[_Q].rangeMax and _GetDistanceSqr(castPosition) < math.pow(spells[_Q].range, 2) then
+                    spells[_Q]:Cast(castPosition.x, castPosition.z)
+                    QFlashed = false
+                    QCasted = true
+                    InRange = false
+                end
+                QCasted = false
+            end
+        end
     end
-]]--
+end
+
+function CastE()
+    if spells[_E]:IsReady() then spells[_E]:Cast() end
+end
+
+function AfterAttack()
+
+    checkitems()
+
+    if not menu.combo.active or menu.jfarm.active then return end
+
+    if QCasted then
+        DelayAction(function() CastE() end, .25)
+
+    else CastE() end
+
+    for _, enemy in ipairs(GetEnemyHeroes()) do
+            if TiamatR and GetDistance(enemy) < 500 then CastSpell(Tiamat) end
+            if HydraR and GetDistance(enemy) < 500 then CastSpell(Hydra) end
+    end
+end
+
+
+function Vi:OnProcessSpell(unit, spell)
+
+    --if unit.isMe and spell.name:lower():find("ViQ") then
+    --  DelayAction(function() OW:resetAA() end, .25)
+    --end
+
     if #ToInterrupt > 0 and menu.misc.interrupt.interruptQ and spells[_Q]:IsReady() then
         for _, ability in pairs(ToInterrupt) do
             if spell.name == ability and unit.team ~= myHero.team and GetDistance(unit) < 715 then
@@ -811,6 +789,7 @@ function Vi:OnProcessSpell(unit, spell)
             end
         end
     end
+
 end
 
 
@@ -844,9 +823,9 @@ function Vi:ApplyMenu()
 
 
     -- Harass
-    menu.harass:addParam("sep",  "",                         SCRIPT_PARAM_INFO, "")
-    menu.harass:addParam("useQ", "Use Q",                    SCRIPT_PARAM_ONOFF , true)
-    menu.harass:addParam("mana", "Don't harass if mana < %", SCRIPT_PARAM_SLICE, 10, 0, 100)
+    --menu.harass:addParam("sep",  "",                         SCRIPT_PARAM_INFO, "")
+    --menu.harass:addParam("useQ", "Use Q",                    SCRIPT_PARAM_ONOFF , true)
+    --menu.harass:addParam("mana", "Don't harass if mana < %", SCRIPT_PARAM_SLICE, 10, 0, 100)
     
     -- Farming
     menu:addSubMenu("Farming", "farm")
@@ -863,19 +842,17 @@ function Vi:ApplyMenu()
         menu.jfarm:addParam("sep",    "",                      SCRIPT_PARAM_INFO, "")
         menu.jfarm:addParam("useQ",   "Use Q",                 SCRIPT_PARAM_ONOFF, true)
         menu.jfarm:addParam("useE",   "Use E",                 SCRIPT_PARAM_ONOFF, true)
+        menu.jfarm:addParam("mana",   "Don't farm if mana < %", SCRIPT_PARAM_SLICE, 10, 0, 100)
 
-
-    -- Manual Q Cast
-    menu:addSubMenu("Manual Q Cast", "manualQ")
+    --Manual Q Cast
+    menu:addSubMenu("Q-Flash-Q", "manualQ")
         menu.manualQ:addParam("sep", "",                             SCRIPT_PARAM_INFO, "")
-        menu.manualQ:addParam("charge", "charge Q Cast",             SCRIPT_PARAM_ONKEYDOWN, false, string.byte("T"))
-        menu.manualQ:addParam("release", "release Charge to Mouse",  SCRIPT_PARAM_ONKEYDOWN, false, string.byte("X"))
-        menu.manualQ:addParam("FlashQ", "use Q-Flash-Q", 			 SCRIPT_PARAM_ONKEYDOWN, false, string.byte("K"))
+    --    menu.manualQ:addParam("charge", "charge Q Cast",             SCRIPT_PARAM_ONKEYDOWN, false, string.byte("T"))
+    --    menu.manualQ:addParam("release", "release Charge to Mouse",  SCRIPT_PARAM_ONKEYDOWN, false, string.byte("X"))
+        menu.manualQ:addParam("FlashQ", "use Q-Flash-Q",             SCRIPT_PARAM_ONKEYDOWN, false, string.byte("K"))
 
     -- Misc
     menu:addSubMenu("Misc", "misc")
-    -- Q Flash Q
-    	menu.misc:addParam("FlashQ", "use Q-Flash-Q", 				   SCRIPT_PARAM_ONKEYDOWN, false, string.byte("K"))
         menu.misc:addSubMenu("Auto-Interrupt", "interrupt")
             menu.misc.interrupt:addParam("sep", "",                                                 SCRIPT_PARAM_INFO, "")
             menu.misc.interrupt:addParam("interruptQ", "attempt to interrupt with Q",               SCRIPT_PARAM_ONOFF, true)
