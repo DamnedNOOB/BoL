@@ -597,11 +597,10 @@ function Vi:OnJungleFarm()
                         spells[_Q]:Cast(self.jungleMinions.objects[1].x, self.jungleMinions.objects[1].z)
                     end
                 end
---[[
+
                 if menu.jfarm.useE and spells[_E]:IsReady() and _GetDistanceSqr(self.jungleMinions.objects[1]) <= spells[_E].rangeSqr then
                     CastSpell(_E)
                 end
-]]--
             end
         end
 
