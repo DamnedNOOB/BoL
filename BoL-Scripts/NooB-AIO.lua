@@ -1,4 +1,4 @@
-local version = 0.006
+local version = 0.008
 local scriptName = "NooB-AIO"
 local autoUpdate   = true
 local silentUpdate = false
@@ -15,7 +15,7 @@ id = 221-- DO NOT CHANGE. This is set to your proper ID.
 
 -- v.0.005  (Riven) added Basic Script
 -- v.0.006  (Vi) fixed AAreset (Error spamming)
-
+-- v.0.008  (Riven) Combo-, Gapclose-, farming- improvements...
 --[[ 
 
  ____  _____   ___      ___   ______             _       _____   ___    
@@ -973,28 +973,24 @@ function Riven:__init()
     --self.mainCombo = { _IGNITE, _Q, _E, _AA, _R }
     --self.standartCombo = { _Q, _E, _AA, _R }
     --self.ultKS = { _R }
-    --self.IGKS = { _IGNITE }
+    self.IGKS = { _IGNITE }
     
     --Register damage sources
     --DLib:RegisterDamageSource(_Q, _PHYSICAL, 10,  20, _PHYSICAL, _AD, 0.44, function() return spells[_Q]:IsReady() end)
-    --DLib:RegisterDamageSource(_W, _PHYSICAL, 50,  20, _PHYSICAL, _AD, 1.74, function() return spells[_E]:IsReady() end)
+    DLib:RegisterDamageSource(_W, _PHYSICAL, 50,  30, _PHYSICAL, _AD, 0.18, function() return spells[_E]:IsReady() end)
     --DLib:RegisterDamageSource(_R, _PHYSICAL, 200, 125, _PHYSICAL, _AD, 0.10, function() return spells[_R]:IsReady() end) 
     
 
-    OW:RegisterAfterAttackCallback(function(target,mode)
+    OW:RegisterAfterAttackCallback(function() self:AfterAttack() end)
+    --[[
+    (function(target,mode)
         if spells[_Q]:IsReady() then         
             if (menu.combo.active and menu.combo.useQ) or (menu.farm.active and menu.farm.useQ) then
-                if (menu.farm.active and menu.farm.useP) or (menu.combo.active and menu.combo.useP) then
-                    if not RivenBuffs.Q.stage == 2 then
-                        self:CastQ(target)
-                    end
-                else 
-                    self:CastQ(target)
-                end
+                spells[_Q]:Cast(target)
             end
         end
     end)
-
+    ]]--
     --PacketHandler:HookOutgoingPacket(Packet.headers.S_MOVE, function(p) self:OnSendMove(p) end) -- needed for jumpspots?
 
     self.AnimationCancel = {
@@ -1041,86 +1037,68 @@ function Riven:ApplyMenu()
 
     menu.combo:addParam("sep",    "",                                   SCRIPT_PARAM_INFO, "")
         menu.combo:addParam("useQ",   "Use Q",                          SCRIPT_PARAM_ONOFF , true)
+        menu.combo:addParam("useW",   "Use W in Combo",                 SCRIPT_PARAM_ONOFF , true)
         menu.combo:addParam("useGC",   "Use gapclose Combo",            SCRIPT_PARAM_ONOFF , true)
-    --    menu.combo:addParam("useP",   "Use all passive stacks",         SCRIPT_PARAM_ONOFF , true)
+    --    menu.combo:addParam("useP",   "Use all passive stacks",       SCRIPT_PARAM_ONOFF , true)
         menu.combo:addParam("useR",   "Use ult if killable",            SCRIPT_PARAM_ONOFF , true)
-
-    menu:addSubMenu("KS", "KS")
-        menu.KS:addParam("useR", "Use Ult to KS",                      SCRIPT_PARAM_ONOFF , true)
 
     menu:addSubMenu("Farming", "farm")
         menu.farm:addParam("active", "Farming active",         SCRIPT_PARAM_ONKEYDOWN, false, string.byte("V"))
         menu.farm:addParam("sep",    "",                       SCRIPT_PARAM_INFO, "")
         menu.farm:addParam("useQ",   "Use Q",                  SCRIPT_PARAM_ONOFF, true)
+        menu.farm:addParam("useW",   "Use W",                  SCRIPT_PARAM_ONOFF, true)
     --    menu.farm:addParam("useP",   "Use all passive Stacks", SCRIPT_PARAM_ONOFF, true)
+
+    menu:addSubMenu('"Kill-secure" options', "KS")
+        menu.KS:addParam("useQ",    "Use Q to KS",             SCRIPT_PARAM_ONOFF, true)
+        menu.KS:addParam("useW",    "Use W to KS",             SCRIPT_PARAM_ONOFF, true)
+        menu.KS:addParam("useIG",   "Use Ignite to KS",        SCRIPT_PARAM_ONOFF, true)
+        menu.KS:addParam("useR",    "Use Ult to KS",           SCRIPT_PARAM_ONOFF, true)
 
     menu:addParam("flee", "FleeMode",                          SCRIPT_PARAM_ONKEYDOWN, false, string.byte("J"))                   
 
     menu:addParam("cancel", "Animation Cancel Method",         SCRIPT_PARAM_LIST, 1, { "Move","Laugh","Dance","Taunt","joke","Nothing" })
 
-    menu:addParam("debug", "debug", SCRIPT_PARAM_ONOFF , true)
+    --menu:addParam("debug", "debug", SCRIPT_PARAM_ONOFF , true)
 
 end
 
 
 function Riven:OnCombo()
 
-    local target = {
+    local targets = {
     [_Q] = STS:GetTarget(spellData[_Q].range), 
     [_W] = STS:GetTarget(spellData[_W].range),
-    [_E] = STS:GetTarget(spellData[_E].range)
-    --[_R] = STS:GetTarget(spellData[_R].range)
     }
-    if target[_Q] and RivenBuffs.Q.stage == 0 then
-        spells[_Q]:Cast(target[_Q])
-    else
-        self:Gapclose()
-    end
 
-    if target[_W] and spells[_W]:IsReady() then
-        return spells[_W]:Cast()
+    if menu.combo.useW then
+        if targets[_W] and spells[_W]:IsReady() then
+            return spells[_W]:Cast()
+        end
     end
 
     if Target and ValidTarget(Target) and (R_ON == false and spells[_R]:IsReady()) and (self:GetComboDmg(Target,false) < Target.health) and (self:GetComboDmg(Target,true) > Target.health) then        
         R_ON_FLAG = true
         R_ON_FLAG_TARGET = Target
     end
+
+    if menu.combo.useGC and not targets[_Q] then
+        self:Gapclose()
+    end
 end
 
---[[
-function Riven:OnHarass()
-
-    -- Don't harass on not enough mana
-    if (player.mana / player.maxMana * 100) < menu.harass.mana then return end
-
-    local target = STS:GetTarget()
-
-end
-]]--
 
 function Riven:OnFarm()
     self:FarmModes()
 end
 
 
---[[function Riven:OnJungleFarm()
-
-    local jungleMinionsUpdated = false
-
-    if (player.mana / player.maxMana * 100) < menu.jfarm.mana then return end
-
-end]]--
-
-
---[[function Riven:KSstuff()
-
-end]]--
-
 function Riven:OnTick()
 
     checkitems()
+    self:FleeMode()
 
-    Target = STS:GetTarget(1165)
+    Target = STS:GetTarget(1200)
 
     AAtarget = OW:GetTarget()
 
@@ -1136,12 +1114,14 @@ function Riven:OnTick()
         end
     end
 
-    if menu.combo.useR or menu.KS.useR then
+    self:KSstuff()
+
+    if menu.combo.useR then
         if ValidTarget(R_ON_FLAG_TARGET, 500) and R_ON_FLAG and spells[_R]:IsReady() then
             CastSpell(_R)
-            self:KSstuff()
         end
     end
+
     for _, enemy in pairs(GetEnemyHeroes()) do
         if ValidTarget(enemy) then    
             if (_GetDistanceSqr(enemy) < spells[_R].rangeSqr) and (getDmg("R", enemy, myHero) > enemy.health) then
@@ -1149,10 +1129,14 @@ function Riven:OnTick()
                     spells[_R]:Cast(enemy)
                 end
             end
+
+            if menu.KS.useR then
+                if (_GetDistanceSqr(enemy) < spells[_R].rangeSqr) and (getDmg("R", enemy, myHero) > enemy.health) then
+                    CastSpell(_R)
+                end
+            end
         end
     end
-
-    self:FleeMode()
 
 end
 
@@ -1218,68 +1202,56 @@ function Riven:OnProcessSpell(unit, spell)
 end
 
 
-function Riven:CastQ(target)
-    if spells[_Q]:IsReady() then
-        spells[_Q]:Cast(target)
-    end
-end
-
-
 function Riven:OnCastSpells(spell)
     if spell.name == "RivenTriCleave" then
         RivenBuffs.Q.stage  = RivenBuffs.Q.stage + 1
---        self.RivenBuffs.Passive.stacks = self.RivenBuffs.Passive.stacks + 1
         if menu.debug then PrintChat("Qstage+1") end
     end
 end
 
 
-function Riven:AfterAttack(unit, spell)
-    if spells[_Q]:IsReady() and (self:OnCombo() or self:OnFarm()) then
-        if unit.isMe and spell.name:lower():find("attack") then
-            self:CastQ()
+function Riven:AfterAttack()
+    if spells[_Q]:IsReady() and (menu.combo.active and menu.combo.useQ) or (menu.farm.active and menu.farm.useQ) then
+        if menu.combo.active then
+            CastSpell(_Q, Target)
+        elseif menu.farm.active then
+            CastSpell(_Q, mousePos.x, mousePos.z)
         end
     end
 end
 
 
 function Riven:FarmModes()
+
     local minionsUpdated = false
-    if spells[_Q]:IsReady() then
+    if menu.farm.useW and menu.farm.active then
         self.enemyMinions:update()
         minionsUpdated = true
-        local minions = SelectUnits(self.enemyMinions.objects, function(t) return ValidTarget(t) and _GetDistanceSqr(t) < spells[_Q].rangeSqr end)
-        minions = GetPredictedPositionsTable(VP, minions, spells[_Q].delay, spells[_Q].width, spells[_Q].range + spells[_Q].width, math.huge, player, false)
-        castPosition, hitNumber = GetBestCircularFarmPosition(spells[_Q].range + spells[_Q].width, spells[_Q].width, minions)
 
-        if menu.farm.useP then
-            if RivenBuffs.Passive.stacks == 0 and castPosition and hitNumber > 0 then
-                spells[_Q]:Cast(castPosition.x, castPosition.z)
-            end
-        else 
-            if castPosition and hitNumber > 1 then
-                spells[_Q]:Cast(castPosition.x, castPosition.z)
-            end
+        for _, minion in ipairs(self.enemyMinions.objects) do
+            if GetDistance(minion) < spells[_W].range and DLib:IsKillable(minion, {_W}) then
+                CastSpell(_W)
+            end        
         end
     end
+
 end
 
 
 function Riven:Gapclose()
-    local Ecasted = nil
-    local GCTarget = STS:GetTarget(spells[_Q].range + spells[_E].range)
-    if spells[_E]:IsReady() and GCTarget and menu.combo.useGC then
-        if not (GetDistance(GCTarget) < spells[_Q].range) then
-            CastSpell(_E, GCTarget.x, GCTarget.z)
-            Ecasted = true
+    if Target and _GetDistanceSqr(Target) <= spells[_E].rangeSqr then
+        if spells[_E]:IsReady() then
+            spells[_E]:Cast(Target.x, Target.z)
         end
-        if RivenBuffs.Q.stage < 2 and Ecasted then
-            if GCTarget and GetDistance(GCTarget) < (spells[_Q].range + spells[_E].range) then
-                CastSpell(_Q, GCTarget.x, GCTarget.z)
-                if menu.debug then PrintChat("Q1GC") end
-            end
+    elseif Target and (_GetDistanceSqr(Target) > spells[_E].rangeSqr) and (_GetDistanceSqr(Target) < spells[_E].rangeSqr + (spells[_Q].rangeSqr*(3-RivenBuffs.Q.stage))) then
+        if spells[_E]:IsReady() then
+            CastSpell(_E, Target.x, Target.z)
+        end
+        if spells[_Q]:IsReady() then
+            CastSpell(_Q, Target.x, Target.z)
         end
     end
+  
 end
 
 
@@ -1287,12 +1259,17 @@ function Riven:KSstuff()
     for _, enemy in pairs(GetEnemyHeroes()) do
         if ValidTarget(enemy) then
             --W
-            if spells[_W]:IsReady() and spells[_W]:IsInRange(enemy) and (getDmg("W", enemy, myHero) > enemy.health) then                
-                spells[_W]:Cast()
+            if menu.KS.useW and spells[_W]:IsReady() and spells[_W]:IsInRange(enemy) and (getDmg("W", enemy, myHero) > enemy.health) then                
+                CastSpell(_W)
             end
             --Q
-            if spells[_Q]:IsReady() and spells[_Q]:IsInRange(enemy) and (getDmg("Q", enemy, myHero) > enemy.health) then
+            if menu.KS.useQ and spells[_Q]:IsReady() and spells[_Q]:IsInRange(enemy) and (getDmg("Q", enemy, myHero) > enemy.health) then
                 spells[_Q]:Cast(enemy)
+            end
+            if not R_ON then
+                if _IGNITE and menu.KS.useIG and _GetDistanceSqr(enemy.visionPos, myHero.visionPos) < 600 * 600 and DLib:IsKillable(enemy, self.IGKS) then
+                    DelayAction(function() CastSpell(_IGNITE, enemy) end, 1000)
+                end
             end
         end
     end
