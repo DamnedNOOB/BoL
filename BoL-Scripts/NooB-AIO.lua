@@ -1,4 +1,4 @@
-local version = 0.009
+local version = 0.010
 local scriptName = "NooB-AIO"
 local autoUpdate   = true
 local silentUpdate = false
@@ -1058,6 +1058,12 @@ function Riven:ApplyMenu()
     menu:addParam("flee", "FleeMode",                          SCRIPT_PARAM_ONKEYDOWN, false, string.byte("J"))                   
 
     menu:addParam("cancel", "Animation Cancel Method",         SCRIPT_PARAM_LIST, 1, { "Move","Laugh","Dance","Taunt","joke","Nothing" })
+
+    menu:addSubMenu("Drawing", "drawing")
+        AAcircle:AddToMenu(menu.drawing, "AA Range", false, true, true)
+        for spell, circle in pairs(circles) do
+            circle:AddToMenu(menu.drawing, SpellToString(spell).." Range", true, true, true)
+        end
 
     --menu:addParam("debug", "debug", SCRIPT_PARAM_ONOFF , true)
 
