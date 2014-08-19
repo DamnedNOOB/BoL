@@ -1267,7 +1267,7 @@ end
 function Riven:Gapclose()
     local Ecasted = nil
     local GCTarget = STS:GetTarget(spells[_Q].range + spells[_E].range)
-    if spells[_E]:IsReady() and spells[_Q]:IsReady() and GCTarget and menu.combo.useGC then
+    if spells[_E]:IsReady() and GCTarget and menu.combo.useGC then
         if not (GetDistance(GCTarget) < spells[_Q].range) then
             CastSpell(_E, GCTarget.x, GCTarget.z)
             Ecasted = true
