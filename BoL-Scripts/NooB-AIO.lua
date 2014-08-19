@@ -1216,7 +1216,6 @@ function Riven:AfterAttack()
     if spells[_Q]:IsReady() and (menu.combo.active and menu.combo.useQ) or (menu.farm.active and menu.farm.useQ) then
         if menu.combo.active then
             CastSpell(_Q, Target.x, Target.z)
-            OW:resetAA()
         elseif menu.farm.active then
             CastSpell(_Q, mousePos.x, mousePos.z)
         end
