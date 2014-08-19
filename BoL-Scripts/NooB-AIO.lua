@@ -1,4 +1,4 @@
-local version = 0.008
+local version = 0.009
 local scriptName = "NooB-AIO"
 local autoUpdate   = true
 local silentUpdate = false
@@ -1222,8 +1222,10 @@ function Riven:AfterAttack()
     local HydraR = (Hydra ~= nil and myHero:CanUseSpell(Hydra))
     local TiamatR = (Tiamat ~= nil and myHero:CanUseSpell(Tiamat))
     ]]--
-    if TiamatR then CastSpell(Tiamat) end
-    if HydraR then CastSpell(Hydra) end
+    if menu.combo.active or menu.farm.active then
+        if TiamatR then CastSpell(Tiamat) end
+        if HydraR then CastSpell(Hydra) end
+    end
 end
 
 
