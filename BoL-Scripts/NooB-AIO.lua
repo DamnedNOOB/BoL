@@ -86,11 +86,6 @@ local RivenBuffs = {
 local R_ON = false
 local R_ON_FLAG = false
 local Target = nil
-local _Q3 = _PASIVE+1
-local _RQ = _PASIVE+2
-local _RQ3 = _PASIVE+3
-local _RW = _PASIVE+4
-
 
 --[[ Script Variables ]]--
 
@@ -1102,6 +1097,7 @@ end
 function Riven:OnTick()
 
     checkitems()
+
     self:FleeMode()
 
     Target = STS:GetTarget(1200)
@@ -1215,13 +1211,16 @@ end
 
 
 function Riven:AfterAttack()
+
     if spells[_Q]:IsReady() and (menu.combo.active and menu.combo.useQ) or (menu.farm.active and menu.farm.useQ) then
         if menu.combo.active then
             CastSpell(_Q, Target.x, Target.z)
+            OW:resetAA()
         elseif menu.farm.active then
             CastSpell(_Q, mousePos.x, mousePos.z)
         end
     end
+
     --[[
     local Hydra = GetInventorySlotItem(3074)
     local Tiamat = GetInventorySlotItem(3077)
@@ -1253,6 +1252,8 @@ end
 
 
 function Riven:Gapclose()
+    if not ValidTarget(Target) then return end
+    if _GetDistanceSqr(Target) < spells[_Q].rangeSqr then return end
     if Target and _GetDistanceSqr(Target) <= spells[_E].rangeSqr then
         if spells[_E]:IsReady() then
             spells[_E]:Cast(Target.x, Target.z)
