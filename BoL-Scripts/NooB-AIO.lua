@@ -1,4 +1,4 @@
-local version = 0.005
+local version = 0.006
 local scriptName = "NooB-AIO"
 local autoUpdate   = true
 local silentUpdate = false
@@ -14,6 +14,7 @@ id = 221-- DO NOT CHANGE. This is set to your proper ID.
 --          fixed menu
 
 -- v.0.005  (Riven) added Basic Script
+-- v.0.006  (Vi) fixed AAreset (Error spamming)
 
 --[[ 
 
@@ -479,7 +480,7 @@ function Vi:__init()
     DLib:RegisterDamageSource(_E, _PHYSICAL, 5,  20, _PHYSICAL, _AD, 1.74, function() return spells[_E]:IsReady() end)
     DLib:RegisterDamageSource(_R, _PHYSICAL, 200, 125, _PHYSICAL, _AD, 0.10, function() return spells[_R]:IsReady() end) 
 
-    OW:RegisterAfterAttackCallback(ViAfterAttack)         
+    OW:RegisterAfterAttackCallback(function() self:AfterAttack() end)       
 
     PacketHandler:HookOutgoingPacket(Packet.headers.S_MOVE, function(p) self:OnSendMove(p) end)
 
@@ -780,7 +781,7 @@ function Vi:CastE()
     if spells[_E]:IsReady() then spells[_E]:Cast() end
 end
 
-function ViAfterAttack()
+function Vi:AfterAttack()
 
     checkitems()
 
@@ -859,9 +860,9 @@ function Vi:ApplyMenu()
 
 
     -- Harass
-    --menu.harass:addParam("sep",  "",                         SCRIPT_PARAM_INFO, "")
-    --menu.harass:addParam("useQ", "Use Q",                    SCRIPT_PARAM_ONOFF , true)
-    --menu.harass:addParam("mana", "Don't harass if mana < %", SCRIPT_PARAM_SLICE, 10, 0, 100)
+    menu.harass:addParam("sep",  "",                         SCRIPT_PARAM_INFO, "")
+    menu.harass:addParam("useQ", "Use Q",                    SCRIPT_PARAM_ONOFF , true)
+    menu.harass:addParam("mana", "Don't harass if mana < %", SCRIPT_PARAM_SLICE, 10, 0, 100)
     
     -- Farming
     menu:addSubMenu("Farming", "farm")
