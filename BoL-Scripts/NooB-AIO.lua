@@ -1,4 +1,4 @@
-local version = 0.010
+local version = 0.011
 local scriptName = "NooB-AIO"
 local autoUpdate   = true
 local silentUpdate = false
@@ -16,6 +16,7 @@ id = 221-- DO NOT CHANGE. This is set to your proper ID.
 -- v.0.005  (Riven) added Basic Script
 -- v.0.006  (Vi) fixed AAreset (Error spamming)
 -- v.0.008  (Riven) Combo-, Gapclose-, farming- improvements...
+-- v.0.011  (Riven) Combo Dmg Draw added
 --[[ 
 
  ____  _____   ___      ___   ______             _       _____   ___    
@@ -1372,6 +1373,53 @@ function Riven:GetComboDmg(target,useR)
     return totalDmg
 end
 
+
+function RivenDamage_OnLoad()
+    AddTickCallback(RivenDamage_OnTick)
+    AddDrawCallback(RivenDamage_OnDraw)
+end AddLoadCallback(RivenDamage_OnLoad)
+local Damage_cached={}
+local Damage_NextTick=0
+
+function RivenDamage_OnTick()
+    if os.clock() > Damage_NextTick then
+        Damage_NextTick=os.clock()+0.2
+        for i, enemy in ipairs(GetEnemyHeroes()) do
+            if ValidTarget(enemy) then                
+                Damage_cached[enemy.hash] = Riven:GetComboDmg(enemy,false)
+            end
+        end
+    end
+end
+
+function RivenDamage_OnDraw()
+    for i, enemy in ipairs(GetEnemyHeroes()) do
+        if ValidTarget(enemy) then
+            RivenDamage_DrawIndicator(enemy)
+        end
+    end
+end
+
+function RivenDamage_DrawIndicator(enemy)
+
+    local damage = Damage_cached[enemy.hash] or 0
+    local SPos, EPos = GetEnemyHPBarPos(enemy)
+
+    -- Validate data
+    if not SPos then return end
+
+    local barwidth = EPos.x - SPos.x
+    local Position = SPos.x + math.max(0, (enemy.health - damage) / enemy.maxHealth) * barwidth
+
+    DrawText("|", 16, math.floor(Position), math.floor(SPos.y + 8), ARGB(255,0,255,0))
+    DrawText("HP: "..math.floor(enemy.health - damage), 13, math.floor(SPos.x), math.floor(SPos.y), (enemy.health - damage) > 0 and ARGB(255, 0, 255, 0) or  ARGB(255, 255, 0, 0))
+
+end
+
+
+
+
+
 function Riven:OnBugsplat()
     UpdateWeb(false, ScriptName, id, HWID)
 end
@@ -1391,7 +1439,7 @@ Credits to:
 Hellsing
 Honda
 Skeem
-Ilikeme(a)n(Riven-Ult-Calcs)
+Ilikeme(a)n(Riven Calcs)
 Apple(AIO-Layout)
 Dienofail(some Values)
 Shalzuth(Skinhack)
