@@ -1084,8 +1084,10 @@ function Riven:OnCombo()
         R_ON_FLAG_TARGET = Target
     end
 
-    if menu.combo.useGC and not targets[_Q] then
-        self:Gapclose()
+    if not targets[_Q] then
+        if menu.combo.useGC then
+            self:Gapclose()
+        end
     end
 end
 
@@ -1097,18 +1099,16 @@ end
 
 function Riven:OnTick()
 
+    OW:EnableAttacks()
     checkitems()
 
     self:FleeMode()
 
     Target = STS:GetTarget(1200)
 
-    AAtarget = OW:GetTarget()
-
-
-    if AAtarget then
-        OW:EnableAttacks()
-    end
+    targets = {
+    [_Q] = STS:GetTarget(spellData[_Q].range),
+    }   
 
     if not menu.combo.active then
         -- Farming
@@ -1215,18 +1215,12 @@ function Riven:AfterAttack()
 
     if spells[_Q]:IsReady() and (menu.combo.active and menu.combo.useQ) or (menu.farm.active and menu.farm.useQ) then
         if menu.combo.active then
-            CastSpell(_Q, Target.x, Target.z)
+            DelayAction(function() spells[_Q]:Cast(targets[_Q]) end, .1)
         elseif menu.farm.active then
-            CastSpell(_Q, mousePos.x, mousePos.z)
+            DelayAction(function() CastSpell(_Q, mousePos.x, mousePos.z) end, .1)
         end
     end
 
-    --[[
-    local Hydra = GetInventorySlotItem(3074)
-    local Tiamat = GetInventorySlotItem(3077)
-    local HydraR = (Hydra ~= nil and myHero:CanUseSpell(Hydra))
-    local TiamatR = (Tiamat ~= nil and myHero:CanUseSpell(Tiamat))
-    ]]--
     if menu.combo.active or menu.farm.active then
         if TiamatR then CastSpell(Tiamat) end
         if HydraR then CastSpell(Hydra) end
@@ -1253,7 +1247,7 @@ end
 
 function Riven:Gapclose()
     if not ValidTarget(Target) then return end
-    if _GetDistanceSqr(Target) < spells[_Q].rangeSqr then return end
+    if GetDistance(Target) < spells[_Q].range then return end
     if Target and _GetDistanceSqr(Target) <= spells[_E].rangeSqr then
         if spells[_E]:IsReady() then
             spells[_E]:Cast(Target.x, Target.z)
