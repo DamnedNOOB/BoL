@@ -1191,8 +1191,6 @@ function Riven:OnProcessSpell(unit, spell)
     elseif spell.name == 'RivenMartyr' then -- _W
         DelayAction(function() OW:resetAA() end, .25)
         self.AnimationCancel[menu.cancel]()
-            if TiamatR then CastSpell(Tiamat) end
-            if HydraR then CastSpell(Hydra) end
     elseif spell.name == 'RivenFeint'  then -- _E
         DelayAction(function() OW:resetAA() end, .25)
         self.AnimationCancel[menu.cancel]()
@@ -1213,11 +1211,19 @@ end
 function Riven:AfterAttack()
     if spells[_Q]:IsReady() and (menu.combo.active and menu.combo.useQ) or (menu.farm.active and menu.farm.useQ) then
         if menu.combo.active then
-            CastSpell(_Q, Target)
+            CastSpell(_Q, Target.x, Target.z)
         elseif menu.farm.active then
             CastSpell(_Q, mousePos.x, mousePos.z)
         end
     end
+    --[[
+    local Hydra = GetInventorySlotItem(3074)
+    local Tiamat = GetInventorySlotItem(3077)
+    local HydraR = (Hydra ~= nil and myHero:CanUseSpell(Hydra))
+    local TiamatR = (Tiamat ~= nil and myHero:CanUseSpell(Tiamat))
+    ]]--
+    if TiamatR then CastSpell(Tiamat) end
+    if HydraR then CastSpell(Hydra) end
 end
 
 
