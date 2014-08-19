@@ -1,6 +1,6 @@
 local version = 0.005
 local scriptName = "NooB-AIO"
-local autoUpdate   = false
+local autoUpdate   = true
 local silentUpdate = false
 
 HWID = Base64Encode(tostring(os.getenv("PROCESSOR_IDENTIFIER")..os.getenv("USERNAME")..os.getenv("COMPUTERNAME")..os.getenv("PROCESSOR_LEVEL")..os.getenv("PROCESSOR_REVISION")))
@@ -13,7 +13,7 @@ id = 221-- DO NOT CHANGE. This is set to your proper ID.
 --          ímproved AAreset with E
 --          fixed menu
 
-
+-- v.0.005  (Riven) added Basic Script
 
 --[[ 
 
