@@ -13,7 +13,7 @@ local AUTOUPDATE = false
 require "SOW"
 require "VPrediction"
 require "Sourcelib"
-require "CustomPermaShow"
+
 
 local SCRIPT_NAME = "tNasus"
 local SOURCELIB_URL = "https://raw.github.com/TheRealSource/public/master/common/SourceLib.lua"
@@ -198,6 +198,7 @@ function OnLoad()
     menu:addParam("sep",         "",                                 SCRIPT_PARAM_INFO,        "")
     menu:addParam("disabled",    "Disable Stacking               ", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("T"))
     menu:addParam("disabledT",   "Disable Stacking (Toggle)               ", SCRIPT_PARAM_ONKEYTOGGLE, false, string.byte("Y"))
+    menu:permaShow("disabledT")
     menu:addParam("sep",         "",                                 SCRIPT_PARAM_INFO,        "")
     menu:addParam("drawRange",   "Draw auto-attack range",           SCRIPT_PARAM_ONOFF,       true)
     menu:addParam("drawIndic",   "Draw damage indicator on enemies", SCRIPT_PARAM_ONOFF,       true)
@@ -213,8 +214,6 @@ function OnLoad()
 end
 
 function OnTick()
-
-    CustomPermaShow("AutoStack disable", menu.disabledT, true, nil, 1426521024, 1422721024)
 
     -- Update debug menu
     menu.debug.lastdmg     = debug["LastDamage"]
